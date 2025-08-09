@@ -87,86 +87,144 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Payment functionality
     window.initiatePayment = function(videoId) {
-        <?php if (!isset($_SESSION['user_id'])): ?>
-            if (confirm('You need to register/login to purchase videos. Would you like to register now?')) {
-                window.location.href = 'user/register.php';
-            }
-            return;
-        <?php else: ?>
-            // Show loading
-            const paymentModal = document.getElementById('paymentModal');
-            const paymentContent = document.getElementById('paymentContent');
-            
-            paymentContent.innerHTML = '<div style="text-align: center; padding: 2rem;"><i class="fas fa-spinner fa-spin" style="font-size: 2rem;"></i><p>Loading payment details...</p></div>';
-            paymentModal.style.display = 'block';
-            document.body.style.overflow = 'hidden';
-            
-            // Fetch payment details
-            fetch('payment.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: `video_id=${videoId}`
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showPaymentDetails(data);
-                } else {
-                    alert('Error: ' + data.message);
-                    closePaymentModal();
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('An error occurred. Please try again.');
+        // Show loading
+        const paymentModal = document.getElementById('paymentModal');
+        const paymentContent = document.getElementById('paymentContent');
+        
+        paymentContent.innerHTML = '<div style="text-align: center; padding: 2rem;"><i class="fas fa-spinner fa-spin" style="font-size: 2rem;"></i><p>Loading payment details...</p></div>';
+        paymentModal.style.display = 'block';
+        document.body.style.overflow = 'hidden';
+        
+        // Fetch payment details
+        fetch('payment.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `video_id=${videoId}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showPaymentDetails(data);
+            } else {
+                alert('Error: ' + data.message);
                 closePaymentModal();
-            });
-        <?php endif; ?>
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred. Please try again.');
+            closePaymentModal();
+        });
     };
     
     function showPaymentDetails(data) {
         const paymentContent = document.getElementById('paymentContent');
+        
+        // Start 5-minute timer
+        let timeLeft = 300; // 5 minutes in seconds
+        
         paymentContent.innerHTML = `
             <div class="payment-info">
                 <h3>${data.video_title}</h3>
                 <div class="payment-amount">₹${data.amount}</div>
                 
-                <div class="upi-info">
-                    <h4><i class="fas fa-mobile-alt"></i> Pay via UPI</h4>
-                    <div class="upi-id">${data.upi_id}</div>
-                    <p style="color: var(--gray-600); font-size: var(--font-size-sm);">
-                        Copy this UPI ID or scan QR code to pay
+                <div class="timer-section" style="background: #fef3c7; padding: var(--spacing-4); border-radius: var(--spacing-2); margin: var(--spacing-4) 0; text-align: center;">
+                    <h4 style="color: #92400e; margin-bottom: var(--spacing-2);">
+                        <i class="fas fa-clock"></i> Payment Timer
+                    </h4>
+                    <div id="paymentTimer" style="font-size: var(--font-size-2xl); font-weight: 700; color: #92400e;">
+                        05:00
+                    </div>
+                    <p style="color: #92400e; font-size: var(--font-size-sm); margin-top: var(--spacing-2);">
+                        Complete payment within this time
                     </p>
                 </div>
                 
+                <div class="upi-info">
+                    <h4><i class="fas fa-mobile-alt"></i> Pay via UPI</h4>
+                    <div class="upi-id">${data.upi_id}</div>
+                    <div style="margin: var(--spacing-4) 0;">
+                        <div id="qrcode" style="display: flex; justify-content: center; margin: var(--spacing-4) 0;"></div>
+                        <p style="color: var(--gray-600); font-size: var(--font-size-sm); text-align: center;">
+                            Scan QR code or use UPI ID above
+                        </p>
+                    </div>
+                </div>
+                
                 <div class="payment-steps">
-                    <h4><i class="fas fa-list-ol"></i> Payment Steps:</h4>
+                    <h4 style="color: #dc2626;"><i class="fas fa-exclamation-triangle"></i> Important Instructions:</h4>
                     <ol>
-                        <li>Click "Pay Now" to open your UPI app</li>
-                        <li>Complete the payment of ₹${data.amount}</li>
-                        <li>Take a screenshot of payment confirmation</li>
-                        <li>Send screenshot to WhatsApp for verification</li>
-                        <li>Get video access within 30 minutes</li>
+                        <li><strong>Make payment of ₹${data.amount} within 5 minutes</strong></li>
+                        <li><strong>Take screenshot of payment confirmation</strong></li>
+                        <li><strong>Share screenshot to admin via WhatsApp</strong></li>
+                        <li><strong>Get video access soon in your user account</strong></li>
+                        <li><strong>Register now with your ID for instant access</strong></li>
                     </ol>
                 </div>
                 
                 <div class="payment-buttons">
                     <a href="${data.upi_url}" class="btn btn-primary">
-                        <i class="fas fa-credit-card"></i> Pay Now
+                        <i class="fas fa-mobile-alt"></i> Pay ₹${data.amount}
                     </a>
-                    <a href="https://wa.me/${data.whatsapp_number}?text=${encodeURIComponent(`I have completed payment of ₹${data.amount} for video: ${data.video_title}. Please activate my access. Payment ID: ${data.payment_id}`)}" 
+                    <a href="https://wa.me/${data.whatsapp_number.replace('+', '')}?text=${encodeURIComponent(`🎓 GT Online Class Payment\n\n✅ Payment Completed: ₹${data.amount}\n📹 Video: ${data.video_title}\n🆔 Payment ID: ${data.payment_id}\n\n📸 Screenshot attached\n⏰ Please activate my access`)}" 
                        class="btn btn-secondary" target="_blank">
-                        <i class="fab fa-whatsapp"></i> Send Screenshot
+                        <i class="fab fa-whatsapp"></i> Share Screenshot
+                    </a>
+                </div>
+                
+                <div style="text-align: center; margin-top: var(--spacing-6); padding: var(--spacing-4); background: var(--gray-50); border-radius: var(--spacing-2);">
+                    <h4 style="color: var(--primary-color); margin-bottom: var(--spacing-3);">
+                        <i class="fas fa-user-plus"></i> Don't have an account?
+                    </h4>
+                    <p style="margin-bottom: var(--spacing-3); color: var(--gray-600);">
+                        Register now with your ID for instant video access!
+                    </p>
+                    <a href="user/register.php" class="btn btn-primary">
+                        <i class="fas fa-user-plus"></i> Register Now
                     </a>
                 </div>
                 
                 <p style="margin-top: var(--spacing-4); font-size: var(--font-size-sm); color: var(--gray-600);">
-                    <i class="fas fa-shield-alt"></i> Secure payment powered by UPI
+                    <i class="fas fa-shield-alt"></i> Secure payment powered by UPI | <i class="fas fa-headset"></i> 24/7 Support available
                 </p>
             </div>
         `;
+        
+        // Generate QR Code for UPI payment
+        generateQRCode(data.upi_url);
+        
+        // Start countdown timer
+        const timerInterval = setInterval(() => {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            document.getElementById('paymentTimer').textContent = 
+                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                document.getElementById('paymentTimer').textContent = 'EXPIRED';
+                document.getElementById('paymentTimer').style.color = '#dc2626';
+                alert('Payment time expired. Please try again.');
+                closePaymentModal();
+            }
+            timeLeft--;
+        }, 1000);
+    }
+    
+    function generateQRCode(upiUrl) {
+        // Simple QR code generation using Google Charts API
+        const qrContainer = document.getElementById('qrcode');
+        if (qrContainer) {
+            const qrSize = 200;
+            const qrImg = document.createElement('img');
+            qrImg.src = `https://chart.googleapis.com/chart?chs=${qrSize}x${qrSize}&cht=qr&chl=${encodeURIComponent(upiUrl)}`;
+            qrImg.alt = 'UPI Payment QR Code';
+            qrImg.style.border = '2px solid var(--primary-color)';
+            qrImg.style.borderRadius = 'var(--spacing-2)';
+            qrContainer.appendChild(qrImg);
+        }
     }
     
     window.closePaymentModal = function() {

@@ -847,9 +847,49 @@ section:nth-child(even) {
     margin-top: var(--spacing-6);
 }
 
+.timer-section {
+    animation: pulse 2s ease-in-out infinite alternate;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    100% { transform: scale(1.02); }
+}
+
+.payment-info .btn {
+    transition: all var(--transition-normal);
+}
+
+.payment-info .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.upi-info {
+    border: 2px solid var(--primary-color);
+}
+
+.upi-id {
+    user-select: all;
+    cursor: pointer;
+}
+
+.upi-id:hover {
+    background: var(--primary-color);
+    color: white;
+}
+
 @media (max-width: 480px) {
     .payment-buttons {
         grid-template-columns: 1fr;
+    }
+    
+    .timer-section {
+        padding: var(--spacing-3);
+    }
+    
+    #paymentTimer {
+        font-size: var(--font-size-xl) !important;
     }
 }
 

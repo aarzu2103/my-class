@@ -1,18 +1,13 @@
 <?php
 require_once 'config.php';
 
-if (!isset($_SESSION['user_id'])) {
-    echo json_encode(['success' => false, 'message' => 'Please login first']);
-    exit;
-}
-
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(['success' => false, 'message' => 'Invalid request method']);
     exit;
 }
 
 $video_id = (int)($_POST['video_id'] ?? 0);
-$user_id = $_SESSION['user_id'];
+$user_id = $_SESSION['user_id'] ?? null;
 
 if (!$video_id) {
     echo json_encode(['success' => false, 'message' => 'Invalid video ID']);
@@ -29,13 +24,15 @@ if (!$video) {
     exit;
 }
 
-// Check if user already has access
-$stmt = $pdo->prepare("SELECT id FROM assigned_videos WHERE user_id = ? AND video_id = ? AND status = 'active' AND expiry_date > NOW()");
-$stmt->execute([$user_id, $video_id]);
+// Check if user already has access (only if logged in)
+if ($user_id) {
+    $stmt = $pdo->prepare("SELECT id FROM assigned_videos WHERE user_id = ? AND video_id = ? AND status = 'active' AND expiry_date > NOW()");
+    $stmt->execute([$user_id, $video_id]);
 
-if ($stmt->fetch()) {
-    echo json_encode(['success' => false, 'message' => 'You already have access to this video']);
-    exit;
+    if ($stmt->fetch()) {
+        echo json_encode(['success' => false, 'message' => 'You already have access to this video']);
+        exit;
+    }
 }
 
 // Get settings
@@ -48,13 +45,19 @@ while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
 $upi_id = $settings['upi_id'] ?? 'admin@paytm';
 $whatsapp_number = $settings['whatsapp_number'] ?? '+919876543210';
 
-// Create pending payment record
-$stmt = $pdo->prepare("INSERT INTO assigned_videos (user_id, video_id, expiry_date, status, payment_status, payment_amount) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 30 DAY), 'pending', 'pending', ?)");
-$stmt->execute([$user_id, $video_id, $video['price']]);
+// Create pending payment record (with or without user_id)
+if ($user_id) {
+    $stmt = $pdo->prepare("INSERT INTO assigned_videos (user_id, video_id, expiry_date, status, payment_status, payment_amount) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 30 DAY), 'pending', 'pending', ?)");
+    $stmt->execute([$user_id, $video_id, $video['price']]);
+} else {
+    // Create a temporary payment record for non-logged users
+    $stmt = $pdo->prepare("INSERT INTO assigned_videos (user_id, video_id, expiry_date, status, payment_status, payment_amount) VALUES (NULL, ?, DATE_ADD(NOW(), INTERVAL 30 DAY), 'pending', 'pending', ?)");
+    $stmt->execute([$video_id, $video['price']]);
+}
 $payment_id = $pdo->lastInsertId();
 
 // Generate UPI payment URL
-$upi_url = "upi://pay?pa={$upi_id}&pn=GT Online Class&am={$video['price']}&cu=INR&tn=Video Payment - {$video['title']}";
+$upi_url = "upi://pay?pa={$upi_id}&pn=GT%20Online%20Class&am={$video['price']}&cu=INR&tn=Video%20Payment%20-%20{$video['title']}";
 
 echo json_encode([
     'success' => true,

@@ -42,9 +42,13 @@ if ($filter !== 'all') {
 
 // Get payments with user and video details
 $payments = $pdo->query("
-    SELECT av.*, u.name as user_name, u.email, u.mobile, v.title as video_title, v.price
+    SELECT av.*, 
+           COALESCE(u.name, 'Guest User') as user_name, 
+           COALESCE(u.email, 'Not registered') as email, 
+           COALESCE(u.mobile, 'Not provided') as mobile, 
+           v.title as video_title, v.price
     FROM assigned_videos av
-    JOIN users u ON av.user_id = u.id
+    LEFT JOIN users u ON av.user_id = u.id
     JOIN videos v ON av.video_id = v.id
     $whereClause
     ORDER BY av.purchase_date DESC
@@ -284,6 +288,11 @@ $today_earnings = $pdo->query("SELECT COALESCE(SUM(payment_amount), 0) FROM assi
                                 <strong><?php echo htmlspecialchars($payment['user_name']); ?></strong><br>
                                 <small><?php echo htmlspecialchars($payment['email']); ?></small><br>
                                 <small><?php echo htmlspecialchars($payment['mobile']); ?></small>
+                                <?php if (!$payment['user_id']): ?>
+                                    <br><span style="color: var(--warning-color); font-size: var(--font-size-xs);">
+                                        <i class="fas fa-exclamation-triangle"></i> Needs Registration
+                                    </span>
+                                <?php endif; ?>
                             </td>
                             <td><?php echo htmlspecialchars($payment['video_title']); ?></td>
                             <td>₹<?php echo number_format($payment['payment_amount']); ?></td>
